@@ -35,7 +35,21 @@ class Hello extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Container(
-                  child: Text("hello", selectionColor: Colors.white),
+                  // child: Text("hello", selectionColor: Colors.white),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.max,
+                    children: [
+                      Container(
+                        color: Colors.red,
+                        child: Text("hello1", selectionColor: Colors.white),
+                      ),
+                      Container(
+                        child: Text("hello2", selectionColor: Colors.white),
+                      ),
+                    ],
+                  ),
                   color: Colors.black,
                   padding: EdgeInsets.all(12),
                   alignment: Alignment.center,

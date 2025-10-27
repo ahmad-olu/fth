@@ -106,11 +106,15 @@ class WidgetAnalyzer {
                   if (stmt is ReturnStatement) {
                     final res = _parseWidgetFromExpression(stmt.expression);
                     for (final a in res) {
-                      if (a.properties is TextProp) {
-                        final p = a.properties as TextProp;
-                        print(".. : ${a.name} = ${p.data} =${p.color}\n");
+                      // if (a.properties is ColumnProp) {
+                      //   final p = a.properties as ColumnProp;
+                      //   print(".. : ${a.name} = ${a.children.length} \n");
+                      //   continue;
+                      // }
+                      for (final b in a.children) {
+                        print(".. : ${a.name} = ${b.name}\n");
                       }
-                      print(".. : ${a.name} = ${a.properties}\n");
+                      // print(".. : ${a.name} = ${a.children.length}\n");
                     }
                     print("\n");
                   }
@@ -126,12 +130,7 @@ class WidgetAnalyzer {
     }
   }
 
-  List<WidgetInfo> _parseWidgetFromExpression(
-    Expression? expr,
-    //   String filePath, [
-    //   String? currentClassName,
-    // ]
-  ) {
+  List<WidgetInfo> _parseWidgetFromExpression(Expression? expr) {
     if (expr == null) return [];
 
     final results = <WidgetInfo>[];
@@ -153,7 +152,9 @@ class WidgetAnalyzer {
             : (newExpr as MethodInvocation).methodName.name;
 
         final props = <String, dynamic>{};
-
+        final out = <WidgetInfo>[];
+        final completeProp = <Properties>[];
+        completeProp.clear();
         final args = newExpr is InstanceCreationExpression
             ? newExpr.argumentList.arguments
             : (newExpr as MethodInvocation).argumentList.arguments;
@@ -167,14 +168,14 @@ class WidgetAnalyzer {
             } else if (label == 'child') {
               uncheckedExpressions.add(arg.expression);
             } else if (label == 'children' && arg.expression is ListLiteral) {
-              // Push each element inside the list
-              // final list = arg.expression as ListLiteral;
-              // for (final elem in list.elements) {
-              //   if (elem is Expression) {
-              //     uncheckedExpressions.add(elem);
-              //   }
-              // }
-              print("got to children");
+              final list = arg.expression as ListLiteral;
+              for (final elem in list.elements) {
+                if (elem is Expression) {
+                  //FIXME: the arrangement of widget as a list in children wont work because well they are in a list
+                  final val = _parseWidgetFromExpression(elem);
+                  if (val.isNotEmpty) out.addAll(val);
+                }
+              }
             } else {
               props[label] = _exprToValue(arg.expression);
             }
@@ -187,15 +188,18 @@ class WidgetAnalyzer {
           }
 
           final widgetProps = extractWidgetProperties(name, props);
+          completeProp.add(widgetProps);
 
-          final value = WidgetInfo().copyWith(
-            name: name,
-            properties: widgetProps,
-          );
-
-          results.add(value);
           // print("${value.properties.runtimeType}");
         }
+        final value = WidgetInfo().copyWith(
+          name: name,
+          properties: completeProp,
+          children: out,
+        );
+
+        results.add(value);
+        // add here
       }
     }
 
@@ -228,6 +232,8 @@ class WidgetAnalyzer {
         return PaddingProp.fromJson(props);
       case 'margin':
         return MarginProp.fromJson(props);
+      case 'column':
+        return ColumnProp.fromJson(props);
 
       // add more widget types here...
       default:
@@ -247,7 +253,10 @@ class WidgetAnalyzer {
       final identifier = expr.identifier.name;
       if (prefix == 'colors') return identifier;
       if (prefix == 'alignment') return identifier;
-      return UnimplementedError(
+      if (prefix == 'mainaxisalignment') return identifier;
+      if (prefix == 'crossaxisalignment') return identifier;
+      if (prefix == 'mainaxissize') return identifier;
+      throw UnimplementedError(
         "_exprToValue: PrefixedIdentifier: ${expr.toSource()}",
       );
     }
@@ -316,18 +325,18 @@ class WidgetAnalyzer {
 class WidgetInfo {
   final String? name;
   // final WidgetType widgetType;
-  final Properties? properties;
+  final List<Properties> properties;
   final WidgetInfo? child;
-  final List<WidgetInfo>? children;
+  final List<WidgetInfo> children;
   // final String filePath;
   // final int offset;
 
   WidgetInfo({
     this.name,
     // required this.widgetType,
-    this.properties,
+    this.properties = const [],
     this.child,
-    this.children,
+    this.children = const [],
     // required this.filePath,
     // required this.offset,
   });
@@ -337,7 +346,7 @@ class WidgetInfo {
 
   WidgetInfo copyWith({
     String? name,
-    Properties? properties,
+    List<Properties>? properties,
     WidgetInfo? child,
     List<WidgetInfo>? children,
   }) {
@@ -372,6 +381,31 @@ class ScaffoldProp extends Properties {
 
   factory ScaffoldProp.fromJson(Map<String, dynamic> json) {
     return ScaffoldProp();
+  }
+}
+
+//todo: work with defaults later
+class ColumnProp extends Properties {
+  ColumnProp({
+    this.mainAxisAlignment = "start",
+    this.crossAxisAlignment = "center",
+    this.mainAxisSize = "max",
+    this.spacing = 0.0,
+  });
+
+  final String? mainAxisAlignment;
+  final String? crossAxisAlignment;
+  final String? mainAxisSize;
+  final double? spacing;
+
+  factory ColumnProp.fromJson(Map<String, dynamic> json) {
+    //print("====> ${json}");
+    return ColumnProp(
+      mainAxisAlignment: json['mainAxisAlignment'] as String?,
+      crossAxisAlignment: json['crossAxisAlignment'] as String?,
+      mainAxisSize: json['mainAxisSize'] as String?,
+      spacing: json['spacing'] as double?,
+    );
   }
 }
 
